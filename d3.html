@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>D3 Shark</title>
+    <script src="js/d3.v3.min.js"></script>
+</head>
+<body>
+<section class="viewport">
+    <div class="container" id="container">
+        <div class="wrapper">
+            <div class="paths"></div>
+        </div>
+    </div>
+</section>
+<script src="js/matrix.js"></script>
+<script>
+(function(data) {
+    var obj = obj || {};
+    obj.init = function() {
+        obj.initRoot();
+        obj.initDefs();
+        obj.initShapes();
+        obj.interval = Math.floor(1E3 / data.Fr)
+    };
+    obj.options = {};
+    obj.options.vector = {};
+    obj.options.coord = {};
+    obj.options.coord.x = 0;
+    obj.options.coord.y = 0;
+    obj.options.color = data.Bg;
+    obj.options.h = "innerHeight" in window
+            ? window.innerHeight
+            : document.documentElement.offsetHeight;
+    obj.options.w = "innerWidth" in window
+            ? window.innerWidth
+            : document.documentElement.offsetWidth;
+    obj.options.scale = 1;
+    //obj.options.w = data.Fw;
+    //obj.options.h = data.Fh;
+    obj.options.startCoord = data.Ft;
+    obj.options.slidesLength = data.tg.length;
+    obj.options.mousemove = true;
+    obj.options.speed = 0;
+    obj.options.interval = 50;
+    obj.options.mouseTimer = setInterval(function () {
+        obj.options.speed = 0;
+        obj.options.mousemove = true;
+    }, obj.options.interval*2);
+
+    //obj.options.matrix = {"155":"1","156":"1","157":"1","158":"1","159":"1","160":"1","161":"1","162":"1","163":"1","164":"1","165":"1","166":"1","167":"1","168":"1","169":"1","170":"1","171":"1","172":"1","173":"1","174":"1","175":"1","176":"1","177":"1","178":"1","179":"1","180":"1","181":"1","182":"1","183":"1","184":"1","185":"1","186":"1","187":"1","188":"1","189":"1","190":"1","191":"1","192":"1","193":"1","194":"1","195":"1","196":"1"};
+    obj.options.matrix = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+
+    obj.initRoot = function() {
+        obj.root = d3.select("div.paths")
+                .attr("style", "width:" + obj.options.w + "px; height:" + obj.options.h + "px; overflow:hidden")
+                .append("svg").attr("width", obj.options.w)
+                .attr("height", obj.options.h)
+                .attr("class", "paths_svg")
+                .attr("viewBox", obj.options.startCoord.xi + " " + obj.options.startCoord.yi + " " + obj.options.w + " " + obj.options.h);
+        obj.transform = obj.root.append("g")
+                .attr("transform", "translate(0,0) scale("+obj.options.scale+")");
+    };
+
+    obj.initShapes = function() {
+        obj.path = obj.transform.selectAll("g.path")
+                .data("1")
+                .enter()
+                .append("g")
+                .attr("class", "curve");
+        data.tg.sort(function(a,b) {
+            return b.id - a.id
+        } );
+        for (var sprites = data.tg, cnt = 0, len = sprites.length; cnt < len; cnt++) {
+            var sprite = sprites[cnt];
+            var spriteObj = obj.path.append("g")
+                .attr("class", 'sprite ' + sprite.id)
+                .attr("id", cnt)
+                .attr("transform", "translate(0,0) scale(1)");
+            for (var spritePath = sprite.pt, c = 0, ln = spritePath.length; c < ln; c++) {
+                if (sprite.Fs[c] && typeof sprite.Fs[c].c == "string") {
+                    spriteObj.append("path").attr("class", "curve").attr("d", function () {
+                        return spritePath[c].da;
+                    }).attr("fill", sprite.Fs[c].c)
+                    .style("fill-opacity", 1);
+                } else {
+
+                    if (typeof spritePath[c].fi !== "undefined") {
+                        spriteObj.append("path").attr("class", "curve").attr("d", function () {
+                            return spritePath[c].da;
+                        }).attr("fill", function(){
+                            return "url(#f"+sprite.id+":"+spritePath[c].fi+")";
+                        })
+                        .style("fill-opacity", 1);
+                    }
+                    if (typeof spritePath[c].ln !== "undefined") {
+                        var lineStroke = sprite.Ls[spritePath[c].ln];
+                        spriteObj.append("path").attr("class", "curve").attr("d", function () {
+                            return spritePath[c].da;
+                        }).attr("stroke", lineStroke['stroke'])
+                        .attr("stroke-linecap", lineStroke['stroke-linecap'])
+                        .attr("stroke-linejoin", lineStroke['stroke-linejoin'])
+                        .attr("stroke-miterlimit", lineStroke['stroke-miterlimit'])
+                        .attr("stroke-width", lineStroke['stroke-width']);
+                    }
+                }
+            }
+
+        }
+    };
+    obj.initDefs = function() {
+        obj.defs = obj.transform.selectAll("g.defs")
+                .data("1")
+                .enter()
+                .append("g")
+                .attr("class", "defs");
+        for (var sprites = data.tg, cnt = 0, len = sprites.length; cnt < len; cnt++) {
+            var sprite = sprites[cnt];
+            for (var spriteDefs = sprite.Fs, c = 0, ln = spriteDefs.length; c < ln; c++) {
+                spritedef = spriteDefs[c];
+                if (spritedef.tp == 3) {
+                    obj.defs.append("radialGradient").attr("class", "defs")
+                            .attr('gradientTransform', spritedef.gradientTransform)
+                            .attr('gradientUnits', spritedef.gradientUnits)
+                            .attr('spreadMethod', spritedef.spreadMethod)
+                            .attr('cx', spritedef.cx).attr('cy', spritedef.cy).attr('fx', spritedef.fx).attr('fy', spritedef.fy)
+                            .attr('r', spritedef.r)
+                            .attr('id', "f"+sprite.id+":" + c ).call(
+                            function(gradient) {
+                                if(spritedef.sp){
+                                    for(var offsets = spritedef.sp, i = 0, lng = offsets.length; i < lng; i++) {
+                                        var offset = offsets[i];
+                                        gradient.append('stop').attr('offset', offset.offset).attr('style', 'stop-color:'+offset["stop-color"]+'');
+                                    }
+                                }
+                            });
+                } else  if (spritedef.tp == 2) {
+                    obj.defs.append("linearGradient").attr("class", "defs")
+                        .attr('gradientTransform', spritedef.gradientTransform)
+                        .attr('gradientUnits', spritedef.gradientUnits)
+                        .attr('spreadMethod', spritedef.spreadMethod)
+                        .attr('x1', spritedef.x1).attr('y1', spritedef.y1).attr('x2', spritedef.x2).attr('y2', spritedef.y2)
+                        .attr('id', "f"+sprite.id+":" + c ).call(
+                        function(gradient) {
+                            if(spritedef.sp){
+                                for(var offsets = spritedef.sp, i = 0, lng = offsets.length; i < lng; i++) {
+                                    var offset = offsets[i];
+                                    gradient.append('stop').attr('offset', offset.offset).attr('style', 'stop-color:'+offset["stop-color"]+'');
+                                }
+                            }
+                        });
+                }
+            }
+        }
+    };
+
+    obj.animateRight = function() {
+        var paths = d3.selectAll('g.sprite');
+        paths.each(function(d, i) {
+            d3.select(this).transition()
+                .duration((obj.options.slidesLength - i)*obj.options.interval*obj.options.speed)
+                .attrTween("transform", obj.animateRight.tween)
+                .ease('sin-in-out');
+
+        });
+    };
+
+    obj.animateRight.tween = function(d, i, a) {
+        var multi = d3.select(this).attr('id');
+        return d3.interpolateString("translate(" + parseInt((multi-obj.options.slidesLength)*10*obj.options.speed*obj.options.matrix[multi]) +",0) scale(1)", "translate(0,0) scale(1)");
+    };
+    obj.animateRight.tween2 = function(d, i, a) {
+        var multi = d3.select(this);
+        console.log('matrix(0.05 0 0 0.05 '+ obj.options.coord.x+' '+obj.options.coord.y +')');
+        return d3.interpolateString('matrix(0.05 0 0 0.05 '+ obj.options.coord.x+' '+obj.options.coord.y +')');
+    };
+
+    obj.animateLeft = function() {
+        var paths = d3.selectAll('g.sprite');
+        paths.each(function(d, i) {
+            d3.select(this).transition()
+                    .duration((obj.options.slidesLength - i)*obj.options.interval*obj.options.speed)
+                    .attrTween("transform", obj.animateLeft.tween)
+                    .ease('sin-in-out');
+
+        });
+    };
+
+    obj.animateLeft.tween = function(d, i, a) {
+        var multi = d3.select(this).attr('id');
+        return d3.interpolateString("translate(" + parseInt(-(multi-obj.options.slidesLength)*10*obj.options.speed*obj.options.matrix[multi]) +",0) scale(1)", "translate(0,0) scale(1)");
+    };
+
+    obj.animateTop = function() {
+        var paths = d3.selectAll('g.sprite');
+        paths.each(function(d, i) {
+            d3.select(this).transition()
+                    .duration((obj.options.slidesLength - i)*obj.options.interval*obj.options.speed)
+                    .attrTween("transform", obj.animateTop.tween)
+                    .ease('sin-in-out');
+
+        });
+    };
+
+    obj.animateTop.tween = function(d, i, a) {
+        var multi = d3.select(this).attr('id');
+        return d3.interpolateString("translate(0," + parseInt(-(multi-obj.options.slidesLength)*10*obj.options.speed*obj.options.matrix[multi]) +") scale(1)", "translate(0,0) scale(1)");
+    };
+
+    obj.animateBottom = function() {
+        var paths = d3.selectAll('g.sprite');
+        paths.each(function(d, i) {
+            d3.select(this).transition()
+                    .duration((obj.options.slidesLength - i)*obj.options.interval*obj.options.speed)
+                    .attrTween("transform", obj.animateBottom.tween)
+                    .ease('sin-in-out');
+
+        });
+    };
+
+    obj.animateBottom.tween = function(d, i, a) {
+        var multi = d3.select(this).attr('id');
+        return d3.interpolateString("translate(0," + parseInt((multi-obj.options.slidesLength)*10*obj.options.speed*obj.options.matrix[multi]) +") scale(1)", "translate(0,0) scale(1)");
+    };
+
+    obj.animateLeftTop = function() {
+        var paths = d3.selectAll('g.sprite');
+        paths.each(function(d, i) {
+            d3.select(this).transition()
+                    .duration((obj.options.slidesLength - i)*obj.options.interval*obj.options.speed)
+                    .attrTween("transform", obj.animateLeftTop.tween)
+                    .ease('sin-in-out');
+
+        });
+    };
+
+    obj.animateLeftTop.tween = function(d, i, a) {
+        var multi = d3.select(this).attr('id');
+        return d3.interpolateString("translate(" + parseInt(-(multi-obj.options.slidesLength)*10*obj.options.speed*obj.options.matrix[multi]) +"," + parseInt(-(multi-obj.options.slidesLength)*10*obj.options.speed*obj.options.matrix[multi]) +") scale(1)", "translate(0,0) scale(1)");
+    };
+
+    obj.animateLeftBottom = function() {
+        var paths = d3.selectAll('g.sprite');
+        paths.each(function(d, i) {
+            d3.select(this).transition()
+                    .duration((obj.options.slidesLength - i)*obj.options.interval*obj.options.speed)
+                    .attrTween("transform", obj.animateLeftBottom.tween)
+                    .ease('sin-in-out');
+
+        });
+    };
+
+    obj.animateLeftBottom.tween = function(d, i, a) {
+        var multi = d3.select(this).attr('id');
+        return d3.interpolateString("translate(" + parseInt(-(multi-obj.options.slidesLength)*10*obj.options.speed*obj.options.matrix[multi]) +"," + parseInt((multi-obj.options.slidesLength)*10*obj.options.speed*obj.options.matrix[multi]) +") scale(1)", "translate(0,0) scale(1)");
+    };
+
+    obj.animateRightTop = function() {
+        var paths = d3.selectAll('g.sprite');
+        paths.each(function(d, i) {
+            d3.select(this).transition()
+                    .duration((obj.options.slidesLength - i)*obj.options.interval*obj.options.speed)
+                    .attrTween("transform", obj.animateRightTop.tween)
+                    .ease('sin-in-out');
+
+        });
+    };
+
+    obj.animateRightTop.tween = function(d, i, a) {
+        var multi = d3.select(this).attr('id');
+        return d3.interpolateString("translate(" + parseInt((multi-obj.options.slidesLength)*10*obj.options.speed*obj.options.matrix[multi]) +"," + parseInt(-(multi-obj.options.slidesLength)*10*obj.options.speed*obj.options.matrix[multi]) +") scale(1)", "translate(0,0) scale(1)");
+    };
+
+    obj.animateRightBottom = function() {
+        var paths = d3.selectAll('g.sprite');
+        paths.each(function(d, i) {
+            d3.select(this).transition()
+                    .duration((obj.options.slidesLength - i)*obj.options.interval*obj.options.speed)
+                    .attrTween("transform", obj.animateRightBottom.tween)
+                    .ease('sin-in-out');
+
+        });
+    };
+
+    obj.animateRightBottom.tween = function(d, i, a) {
+        var multi = d3.select(this).attr('id');
+        return d3.interpolateString("translate(" + parseInt((multi-obj.options.slidesLength)*10*obj.options.speed*obj.options.matrix[multi]) +"," + parseInt((multi-obj.options.slidesLength)*10*obj.options.speed*obj.options.matrix[multi]) +") scale(1)", "translate(0,0) scale(1)");
+    };
+
+    obj.move = function() {
+        d3.select('svg').on("mousemove", obj.mouseMove);
+    };
+
+    obj.getDirection = function (x1,x2,y1,y2)
+    {
+        var dx = x2 - x1;
+        var dy = y2 - y1;
+        return (Math.atan2(dx,  dy) / Math.PI * 180);
+    };
+
+    obj.mouseMove  = function(d) {
+        var startTime = new Date().getTime();
+        if (obj.options.mousemove) {
+            obj.options.mousemove = false;
+            var coordX = d3.mouse(this)[0];
+            var coordY = d3.mouse(this)[1];
+            d3.select('svg>g').transition()
+                .duration(2000)
+                .attr("transform", "translate("+parseInt(coordX)+","+coordY+") scale("+obj.options.scale+")")
+                .ease('exp-out');
+            var distance = Math.round(Math.sqrt(Math.pow(obj.options.coord.y - coordY, 2) +Math.pow(obj.options.coord.x - coordX, 2)));
+            //console.log(obj.options.speed);
+            obj.options.speed = distance/obj.options.interval;
+            //console.log(obj.options.speed);
+            if (obj.options.speed > 0.75) {
+                obj.options.speed = 0.75;
+            }
+            var lastDirection = obj.options.direction;
+            obj.options.direction = obj.getDirection(obj.options.coord.x, coordX, obj.options.coord.y, coordY);
+            if (Math.abs(obj.options.direction-lastDirection) <30) {
+                obj.options.direction = lastDirection;
+            }
+            obj.options.coord.x = coordX;
+            obj.options.coord.y = coordY;
+            if (obj.options.direction == 90) {
+                //console.log('Right');
+                obj.animateRight();
+            }
+            if (obj.options.direction == -90) {
+                //console.log('Left');
+                obj.animateLeft();
+            }
+            if (obj.options.direction == 180) {
+                //console.log('Top');
+                obj.animateTop();
+            }
+            if (obj.options.direction == 0) {
+               // console.log('Bottom');
+                obj.animateBottom();
+            }
+            if (obj.options.direction > 90 && obj.options.direction < 180) {
+                //console.log('RightTop');
+                obj.animateRightTop();
+            }
+            if (obj.options.direction > -90 && obj.options.direction < 0) {
+                //console.log('LeftBottom');
+                obj.animateLeftBottom();
+            }
+            if (obj.options.direction > -180 && obj.options.direction < -90) {
+                //console.log('LeftTop');
+                obj.animateLeftTop();
+            }
+            if (obj.options.direction > 0 && obj.options.direction < 90) {
+                //console.log('RightBottom');
+                obj.animateRightBottom();
+            }
+        }
+        var endTime = new Date().getTime();
+        obj.options.interval = (endTime - startTime)*10 + 50;
+        //console.log(obj.options.interval);
+    };
+    obj.init();
+    obj.move();
+})(svgdata);
+</script>
+</body>
+</html>
